@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products Editor</title>
+    <script>
+        function makeEditable(cell, id, column) {
+            const originalValue = cell.innerText;
+
+            const input = document.createElement("input");
+            input.type = "text";
+            input.value = originalValue;
+
+            cell.innerHTML = "";
+            cell.appendChild(input);
+            input.focus();
+
+            input.addEventListener("blur", () => saveChange(cell, input.value, id, column));
+            input.addEventListener("keydown", (event) => {
+                if (event.key === "Enter") input.blur();
+                if (event.key === "Escape") cancelEdit(cell, originalValue);
+            });
+        }
+
+        function saveChange(cell, newValue, id, column) {
+            fetch("/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: id, column: column, value: newValue }),
+            })
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.status === "success") {
+                    cell.innerText = newValue;
+                } else {
+                    alert("Error saving changes");
+                }
+            })
+            .catch(() => alert("Error connecting to server"));
+        }
+
+        function cancelEdit(cell, originalValue) {
+            cell.innerText = originalValue;
+        }
+    </script>
+    <style>
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background-color: #f4f4f4; }
+        td.editable { cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Products</h1>
+
+    
+    <form method="POST" action="/products">
+        <label for="search_id">Search by ID:</label>
+        <input type="text" id="search_id" name="search_id" value="{{ search_id }}" placeholder="Enter item_sku to search" />
+        <button type="submit">Search</button>
+    </form>
+
+    
+    <table>
+        <thead>
+            <tr>
+                {% for column in columns %}
+                <th>{{ column }}</th>
+                {% endfor %}
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                {% for column in columns %}
+                <td class="editable" onclick="makeEditable(this, {{ row[0] }}, '{{ column }}')">{{ row[columns.index(column)] }}</td>
+                {% endfor %}
+                <td>
+                    <form method="POST" action="/delete" style="display:inline;">
+                        <input type="hidden" name="id" value="{{ row[0] }}">
+                        <button type="submit">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    
+    <h2>Add New Product</h2>
+    <form method="POST" action="/add">
+        {% for column in columns %}
+        <input type="text" name="{{ column }}" placeholder="Enter {{ column }}" required />
+        {% endfor %}
+        <button type="submit">Add Product</button>
+    </form>
+</body>
+</html>
